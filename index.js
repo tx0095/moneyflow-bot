@@ -1,79 +1,85 @@
 require('dotenv').config()
 const TelegramBot = require('node-telegram-bot-api')
 const { google } = require('googleapis')
-const path = require('path')
 const express = require('express')
+const path = require('path')
+const fs = require('fs')
 
-/* ================= EXPRESS ================= */
+// ===== EXPRESS SERVER (Render requirement) =====
 const app = express()
-const PORT = process.env.PORT || 3000
-app.get('/', (req, res) => res.send('MoneyFlow Bot running...'))
-app.listen(PORT, () => console.log(`Server running on ${PORT}`))
+const PORT = process.env.PORT || 10000
+app.get('/', (_, res) => res.send('Finance Bot running...'))
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
 
-/* ================= TELEGRAM ================= */
-const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true })
+// ===== TELEGRAM BOT (Polling ONLY) =====
+const bot = new TelegramBot(process.env.BOT_TOKEN, {
+  polling: true
+})
 
-/* ================= GOOGLE SHEETS ================= */
+// ===== GOOGLE SHEET AUTH =====
+
+// Dapatkan path credentials dari ENV
+const CRED_PATH = process.env.GOOGLE_CREDENTIALS_PATH || path.join(__dirname, 'credentials.json')
+
+// Pastikan file ada
+if (!fs.existsSync(CRED_PATH)) {
+  console.error(`❌ File credentials.json tidak ditemukan di ${CRED_PATH}`)
+  process.exit(1)
+}
+
 const auth = new google.auth.GoogleAuth({
-  keyFile: path.join(__dirname, 'credentials.json'),
+  keyFile: CRED_PATH,
   scopes: ['https://www.googleapis.com/auth/spreadsheets'],
 })
+
 const sheets = google.sheets({ version: 'v4', auth })
 
-/* ================= PARSER ================= */
+// ===== HELPER PARSER =====
 function parseMessage(text) {
   const lower = text.toLowerCase()
-
   let type = 'Pengeluaran'
-  if (lower.includes('gaji') || lower.includes('terima') || lower.includes('jual')) {
-    type = 'Pemasukan'
+  if (lower.includes('gaji') || lower.includes('jual') || lower.includes('terima')) {
+    type = 'Pendapatan'
   }
 
-  const numberMatch = text.match(/\d+/)
-  if (!numberMatch) return null
+  const match = text.match(/(\d+)/)
+  if (!match) return null
 
-  const amount = Number(numberMatch[0])
-  const description = text.replace(numberMatch[0], '').trim()
-
+  const amount = Number(match[1])
+  const description = text.replace(match[1], '').trim()
   return { type, amount, description }
 }
 
-/* ================= BOT LISTENER ================= */
+// ===== BOT LISTENER =====
 bot.on('message', async (msg) => {
-  if (!msg.text) return
-
   const chatId = msg.chat.id
-  const text = msg.text
+  const text = msg.text || ''
 
   const data = parseMessage(text)
   if (!data) {
-    return bot.sendMessage(
-      chatId,
-      `❌ Format salah\n\nContoh:\n- beli beras 1200\n- terima gaji 30000`
+    return bot.sendMessage(chatId,
+      '❌ Format salah\nContoh:\n- beli beras 1200\n- gaji 30000'
     )
   }
 
-  const { type, amount, description } = data
-
   try {
     await sheets.spreadsheets.values.append({
-      spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${process.env.SHEET_NAME}!A:D`,
-      valueInputOption: 'USER_ENTERED',
-      insertDataOption: 'INSERT_ROWS',
-      requestBody: {
-        values: [[
-          new Date().toLocaleDateString('zh-TW'), // A Tanggal
-          amount,                                 // B Jumlah
-          type,                                   // C Tipe
-          description                             // D Keterangan
-        ]]
-      }
-    })
+  spreadsheetId: process.env.SPREADSHEET_ID,
+  range: `${process.env.SHEET_NAME}!A:D`,
+  valueInputOption: 'USER_ENTERED',
+  requestBody: {
+    values: [[
+      new Date().toLocaleDateString('id-ID'), // A: Tanggal
+      data.type,                               // B: Tipe
+      data.amount,                             // C: Jumlah (NTD)
+      data.description                         // D: Keterangan
+    ]]
+  }
+})
 
-    bot.sendMessage(
-      chatId,
-      `✅ Tercatat\n${type}\nNT$${amount.toLocaleString('zh-TW')}\n${description}`
+
+    bot.sendMessage(chatId,
+      `✅ Tercatat:\nType: ${data.type}\nNominal: NT$${data.amount.toLocaleString()}\nKeterangan: ${data.description}`
     )
 
   } catch (err) {
