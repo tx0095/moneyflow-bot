@@ -5,23 +5,18 @@ const express = require('express')
 const path = require('path')
 const fs = require('fs')
 
-// ===== EXPRESS SERVER (Render requirement) =====
+// ===== EXPRESS SERVER =====
 const app = express()
 const PORT = process.env.PORT || 10000
 app.get('/', (_, res) => res.send('Finance Bot running...'))
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
 
-// ===== TELEGRAM BOT (Polling ONLY) =====
-const bot = new TelegramBot(process.env.BOT_TOKEN, {
-  polling: true
-})
+// ===== TELEGRAM BOT =====
+const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true })
 
 // ===== GOOGLE SHEET AUTH =====
-
-// Dapatkan path credentials dari ENV
 const CRED_PATH = process.env.GOOGLE_CREDENTIALS_PATH || path.join(__dirname, 'credentials.json')
 
-// Pastikan file ada
 if (!fs.existsSync(CRED_PATH)) {
   console.error(`❌ File credentials.json tidak ditemukan di ${CRED_PATH}`)
   process.exit(1)
@@ -64,19 +59,18 @@ bot.on('message', async (msg) => {
 
   try {
     await sheets.spreadsheets.values.append({
-  spreadsheetId: process.env.SPREADSHEET_ID,
-  range: `${process.env.SHEET_NAME}!A:D`,
-  valueInputOption: 'USER_ENTERED',
-  requestBody: {
-    values: [[
-      new Date().toLocaleDateString('id-ID'), // A: Tanggal
-      data.type,                               // B: Tipe
-      data.amount,                             // C: Jumlah (NTD)
-      data.description                         // D: Keterangan
-    ]]
-  }
-})
-
+      spreadsheetId: process.env.SPREADSHEET_ID,
+      range: `${process.env.SHEET_NAME}!A:D`, // hanya 4 kolom
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[
+          new Date().toLocaleDateString('id-ID'), // A: Tanggal
+          data.type,                               // B: Tipe
+          data.amount,                             // C: Jumlah (NTD)
+          data.description                         // D: Keterangan
+        ]]
+      }
+    })
 
     bot.sendMessage(chatId,
       `✅ Tercatat:\nType: ${data.type}\nNominal: NT$${data.amount.toLocaleString()}\nKeterangan: ${data.description}`
