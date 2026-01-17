@@ -60,7 +60,7 @@ bot.on('message', async (msg) => {
   try {
     await sheets.spreadsheets.values.append({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${process.env.SHEET_NAME}!A:D`, // hanya 4 kolom
+      range: `${process.env.SHEET_NAME}!A1:D1`, // hanya 4 kolom
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: [[
