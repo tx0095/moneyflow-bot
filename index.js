@@ -65,8 +65,8 @@ bot.on('message', async (msg) => {
       requestBody: {
         values: [[
           new Date().toLocaleDateString('id-ID'), // A: Tanggal
-          data.amount,                             // C: Jumlah (NTD)
           data.type,                               // B: Tipe
+          data.amount,                             // C: Jumlah (NTD)
           data.description                         // D: Keterangan
         ]]
       }
