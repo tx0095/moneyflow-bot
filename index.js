@@ -44,10 +44,63 @@ function parseMessage(text) {
   const description = text.replace(match[1], '').trim()
   return { type, amount, description }
 }
+async function getMonthlyReport() {
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: process.env.SPREADSHEET_ID,
+    range: `${process.env.SHEET_NAME}!A2:D`,
+  })
+
+  const rows = res.data.values || []
+  const now = new Date()
+  const currentMonth = now.getMonth()
+  const currentYear = now.getFullYear()
+
+  let income = 0
+  let expense = 0
+
+  rows.forEach(row => {
+    if (!row[0] || !row[1] || !row[2]) return
+
+    const date = new Date(row[0])
+    if (date.getMonth() !== currentMonth || date.getFullYear() !== currentYear) return
+
+    const type = row[1].toLowerCase()
+    const amount = Number(row[2]) || 0
+
+    if (type.includes('pendapatan')) income += amount
+    if (type.includes('pengeluaran')) expense += amount
+  })
+
+  return { income, expense }
+}
+
 
 // ===== BOT LISTENER =====
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id
+  bot.onText(/\/rekap/, async (msg) => {
+  const chatId = msg.chat.id
+
+  try {
+    const { income, expense } = await getMonthlyReport()
+    const balance = income - expense
+
+    const monthName = new Date().toLocaleString('id-ID', { month: 'long', year: 'numeric' })
+
+    bot.sendMessage(chatId,
+      `📊 Rekap ${monthName}\n\n` +
+      `💰 Pendapatan : NT$${income.toLocaleString()}\n` +
+      `💸 Pengeluaran: NT$${expense.toLocaleString()}\n` +
+      `━━━━━━━━━━━━━━\n` +
+      `📈 Saldo      : NT$${balance.toLocaleString()}`
+    )
+
+  } catch (err) {
+    console.error(err)
+    bot.sendMessage(chatId, '❌ Gagal mengambil rekap bulanan')
+  }
+})
+
   const text = msg.text || ''
   const data = parseMessage(text)
 
