@@ -86,7 +86,7 @@ bot.on('message', async (msg) => {
               startRowIndex: rowNumber,
               endRowIndex: rowNumber + 1,
               startColumnIndex: 0,
-              endColumnIndex: 4
+              endColumnIndex: 3
             },
             cell: {
               userEnteredFormat: {
